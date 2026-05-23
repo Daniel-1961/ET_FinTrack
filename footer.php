@@ -116,6 +116,10 @@
                 bi_advisor: "FinTrack Intelligent Market Advisor",
                 panel_expense_share: "Expense Categorization",
                 panel_top_debtors: "Top Outstanding Debtors",
+                panel_low_stock: "Low Stock Alert",
+                panel_weekly_comp: "Weekly Sales Comparison",
+                panel_cash_flow: "Cash Flow Analysis",
+                panel_rev_expense: "Revenue vs Expenses",
                 
                 form_desc: "Transaction Title / Items purchased",
                 form_amount: "Amount (ETB)",
@@ -228,6 +232,10 @@
                 bi_advisor: "የፋይናንስ ትራክ የገበያ መካሪ",
                 panel_expense_share: "የወጪዎች ምድብ ክፍፍል",
                 panel_top_debtors: "ትልቅ ዕዳ ያለባቸው ደንበኞች",
+                panel_low_stock: "በቂ ክምችት የሌለው",
+                panel_weekly_comp: "የሳምንታዊ ሽያጭ ማዘያ",
+                panel_cash_flow: "የገንዘብ እናዊ",
+                panel_rev_expense: "የሽያጭ እና ወጪዎች",
                 
                 form_desc: "የግብይቱ ርዕስ / የተሸጡ ዕቃዎች",
                 form_amount: "የገንዘብ መጠን (ብር)",

@@ -301,6 +301,60 @@ for ($i = 5; $i >= 0; $i--) {
     $monthlyProfitData[] = floatval($q->fetchColumn() ?: 0);
 }
 
+// 7d. Cash Flow Trend (Daily)
+$cashFlowData = [];
+$cashFlowLabels = [];
+for ($i = 6; $i >= 0; $i--) {
+    $dateVal = date('Y-m-d', strtotime("-$i days"));
+    $cashFlowLabels[] = date('m-d', strtotime("-$i days"));
+    $q = $pdo->prepare("SELECT SUM(CASE WHEN type = 'sale' THEN amount WHEN type = 'expense' THEN -amount ELSE 0 END) FROM transactions WHERE user_id = ? AND date = ?");
+    $q->execute([$userId, $dateVal]);
+    $cashFlowData[] = floatval($q->fetchColumn() ?: 0);
+}
+
+// 7e. Expense Breakdown by Category (Weekly)
+$expenseByCategory = [];
+$stmt = $pdo->prepare("SELECT category, SUM(amount) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= ? GROUP BY category ORDER BY total DESC LIMIT 6");
+$stmt->execute([$userId, date('Y-m-d', strtotime('-7 days'))]);
+while ($row = $stmt->fetch()) {
+    $expenseByCategory[] = $row;
+}
+
+// 7f. Top Customers by Debt
+$topDebtors = [];
+$stmt = $pdo->prepare("SELECT name, debt_balance FROM customers WHERE user_id = ? AND debt_balance > 0 ORDER BY debt_balance DESC LIMIT 5");
+$stmt->execute([$userId]);
+while ($row = $stmt->fetch()) {
+    $topDebtors[] = $row;
+}
+
+// 7g. Stock Alert - Low Stock Items
+$lowStockItems = [];
+$stmt = $pdo->prepare("SELECT name, quantity, category FROM products WHERE user_id = ? AND quantity <= 5 AND quantity > 0 ORDER BY quantity ASC LIMIT 5");
+$stmt->execute([$userId]);
+while ($row = $stmt->fetch()) {
+    $lowStockItems[] = $row;
+}
+
+// 7h. Revenue vs Expense Comparison
+$revenueVsExpense = [
+    'labels' => ['Sales', 'Expenses'],
+    'data' => [$totalSales, $totalExpenses]
+];
+
+// 7i. Weekly Sales Comparison (This Week vs Last Week)
+$thisWeekSales = 0;
+$lastWeekSales = 0;
+$stmt = $pdo->prepare("SELECT SUM(amount) FROM transactions WHERE user_id = ? AND type = 'sale' AND date >= ? AND date <= ?");
+$stmt->execute([$userId, date('Y-m-d', strtotime('-6 days')), date('Y-m-d')]);
+$thisWeekSales = floatval($stmt->fetchColumn() ?: 0);
+$stmt->execute([$userId, date('Y-m-d', strtotime('-13 days')), date('Y-m-d', strtotime('-7 days'))]);
+$lastWeekSales = floatval($stmt->fetchColumn() ?: 0);
+$weeklyComparison = [
+    'labels' => ['Last Week', 'This Week'],
+    'data' => [$lastWeekSales, $thisWeekSales]
+];
+
 // Attach the unified responsive header
 require_once 'header.php';
 ?>
@@ -312,6 +366,14 @@ require_once 'header.php';
         <p data-localize="dash_desc">Here is your business financial summary for this month.</p>
     </div>
     <div class="header-actions">
+        <div class="period-selector" style="display: flex; gap: 8px; align-items: center; background: var(--bg-input); padding: 6px 10px; border-radius: 12px; border: 1px solid var(--border-color);">
+            <label style="font-size: 0.85rem; color: var(--text-secondary);">Period:</label>
+            <select id="dashboardPeriod" onchange="changeDashboardPeriod()" style="background: none; border: none; color: var(--text-light); font-weight: 600; cursor: pointer;">
+                <option value="daily">Daily</option>
+                <option value="weekly" selected>Weekly</option>
+                <option value="monthly">Monthly</option>
+            </select>
+        </div>
         <button class="btn btn-primary" onclick="openDrawer('sale')">
             <i class="fas fa-plus"></i> <span data-localize="btn_record_sale">Record Sale</span>
         </button>
@@ -370,15 +432,15 @@ require_once 'header.php';
 </div>
 
 <!-- Professional Analytics Charts -->
-<div class="dashboard-panels" style="display: grid; grid-template-columns: 1fr; gap: 25px; margin-bottom: 25px;">
-    <!-- Top Row: Periodic Profit Trends -->
-    <div class="panel">
-        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+<div class="dashboard-panels">
+    <!-- Top Row: Profit Trends -->
+    <div class="panel" style="grid-column: 1 / -1;">
+        <div class="panel-header">
             <h3 class="panel-title"><i class="fas fa-chart-line"></i> <span data-localize="panel_profit_trend">Profit Trends (Net)</span></h3>
             <div class="chart-toggles">
-                <button class="btn btn-small active" onclick="updateProfitChart('daily')">Daily</button>
-                <button class="btn btn-small" onclick="updateProfitChart('weekly')">Weekly</button>
-                <button class="btn btn-small" onclick="updateProfitChart('monthly')">Monthly</button>
+                <button class="btn btn-small active" onclick="updateProfitChart('daily', event)">Daily</button>
+                <button class="btn btn-small" onclick="updateProfitChart('weekly', event)">Weekly</button>
+                <button class="btn btn-small" onclick="updateProfitChart('monthly', event)">Monthly</button>
             </div>
         </div>
         <div style="height: 300px; width: 100%;">
@@ -387,24 +449,93 @@ require_once 'header.php';
     </div>
 </div>
 
-<div class="dashboard-panels" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-bottom: 25px;">
-    <!-- Bottom Left: Profit per Product -->
+<!-- BI Charts Grid -->
+<div class="dashboard-panels">
+    <!-- Row 1: Revenue vs Expenses & Cash Flow -->
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-chart-bar"></i> Revenue vs Expenses</h3>
+            <div class="chart-toggles">
+                <button class="btn btn-small active" style="padding: 4px 8px; font-size: 0.75rem;">All Time</button>
+            </div>
+        </div>
+        <div style="height: 220px; width: 100%;">
+            <canvas id="revenueExpenseChart"></canvas>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-chart-area"></i> Cash Flow</h3>
+            <div class="chart-toggles">
+                <button class="btn btn-small active" style="padding: 4px 8px; font-size: 0.75rem;">7 Days</button>
+            </div>
+        </div>
+        <div style="height: 220px; width: 100%;">
+            <canvas id="cashFlowChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-panels">
+    <!-- Row 2: Profit per Product & Sales Distribution -->
     <div class="panel">
         <div class="panel-header">
             <h3 class="panel-title"><i class="fas fa-box-open"></i> <span data-localize="panel_profit_product">Net Profit per Product</span></h3>
         </div>
-        <div style="height: 300px; width: 100%;">
+        <div style="height: 280px; width: 100%;">
             <canvas id="profitProductChart"></canvas>
         </div>
     </div>
 
-    <!-- Bottom Right: Product Sales Volume -->
     <div class="panel">
         <div class="panel-header">
             <h3 class="panel-title"><i class="fas fa-chart-pie"></i> <span data-localize="panel_sales_dist">Product Sales Distribution</span></h3>
         </div>
-        <div style="height: 300px; width: 100%; display: flex; justify-content: center;">
+        <div style="height: 280px; width: 100%; display: flex; justify-content: center;">
             <canvas id="salesPieChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-panels">
+    <!-- Row 3: Weekly Comparison & Expense Breakdown -->
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-calendar-alt"></i> <span data-localize="panel_weekly_comp">Weekly Sales Comparison</span></h3>
+        </div>
+        <div style="height: 220px; width: 100%;">
+            <canvas id="weeklyComparisonChart"></canvas>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-receipt"></i> <span data-localize="panel_expense_share">Expense Breakdown</span></h3>
+        </div>
+        <div style="height: 220px; width: 100%;">
+            <canvas id="expenseBreakdownChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-panels">
+    <!-- Row 4: Top Debtors & Low Stock Alerts -->
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-user-clock"></i> <span data-localize="panel_top_debtors">Top Debtors</span></h3>
+        </div>
+        <div style="height: 260px; width: 100%;">
+            <canvas id="topDebtorsChart"></canvas>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-exclamation-triangle"></i> <span data-localize="panel_low_stock">Low Stock Alert</span></h3>
+        </div>
+        <div style="height: 260px; width: 100%;">
+            <canvas id="lowStockChart"></canvas>
         </div>
     </div>
 </div>
@@ -440,76 +571,86 @@ require_once 'header.php';
         </div>
     </div>
 
-    <script>
-        // Inject PHP data to JavaScript window object for Chart.js
-        window.analyticsData = {
-            profitTrend: {
-                daily: { labels: <?= json_encode($dailyLabels) ?>, data: <?= json_encode($dailyProfitData) ?> },
-                weekly: { labels: <?= json_encode($weeklyLabels) ?>, data: <?= json_encode($weeklyProfitData) ?> },
-                monthly: { labels: <?= json_encode($monthlyLabels) ?>, data: <?= json_encode($monthlyProfitData) ?> }
-            },
-            productProfit: <?= json_encode($productProfits) ?>,
-            productVolume: <?= json_encode($productVolumes) ?>
-        };
-    </script>
-
-<!-- Recent Activities Table -->
-<div class="panel">
-    <div class="panel-header">
-        <h3 class="panel-title"><i class="fas fa-history"></i> <span data-localize="panel_recent_tx">Recent Ledger Entries</span></h3>
-        <a href="transactions.php" class="btn btn-secondary btn-small" data-localize="btn_view_all">View All</a>
-    </div>
-    <div class="table-responsive">
-        <table class="custom-table">
-            <thead>
-                <tr>
-                    <th data-localize="table_date">Date</th>
-                    <th data-localize="table_desc">Description</th>
-                    <th data-localize="table_type">Type</th>
-                    <th data-localize="table_amount">Amount</th>
-                    <th data-localize="table_status">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($recentTx)): ?>
+    <!-- Recent Activities Table -->
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-history"></i> <span data-localize="panel_recent_tx">Recent Ledger Entries</span></h3>
+            <a href="transactions.php" class="btn btn-secondary btn-small" data-localize="btn_view_all">View All</a>
+        </div>
+        <div class="table-responsive">
+            <table class="custom-table">
+                <thead>
                     <tr>
-                        <td colspan="5" style="text-align: center; color: var(--text-secondary);">No ledger records found yet. Click Record Sale to begin.</td>
+                        <th data-localize="table_date">Date</th>
+                        <th data-localize="table_desc">Description</th>
+                        <th data-localize="table_type">Type</th>
+                        <th data-localize="table_amount">Amount</th>
+                        <th data-localize="table_status">Status</th>
                     </tr>
-                <?php else: ?>
-                    <?php foreach ($recentTx as $t): 
-                        $badgeClass = 'badge-success';
-                        $statusKey = 'text_paid';
-                        if ($t['type'] === 'expense') {
-                            $badgeClass = 'badge-danger';
-                            $statusKey = 'text_expense';
-                        } elseif ($t['type'] === 'purchase') {
-                            $badgeClass = 'badge-info';
-                            $statusKey = 'text_purchase';
-                        } elseif ($t['status'] === 'credit') {
-                            $badgeClass = 'badge-warning';
-                            $statusKey = 'text_credit';
-                        }
-                        $typeLabel = 'Sale';
-                        $typeColor = 'var(--success)';
-                        $typeSign = '+';
-                        if ($t['type'] === 'expense') { $typeLabel = 'Expense'; $typeColor = 'var(--danger)'; $typeSign = '-'; }
-                        elseif ($t['type'] === 'purchase') { $typeLabel = 'Purchase'; $typeColor = 'var(--info, #6366f1)'; $typeSign = '-'; }
-                    ?>
+                </thead>
+                <tbody>
+                    <?php if (empty($recentTx)): ?>
                         <tr>
-                            <td><?= $t['date'] ?></td>
-                            <td><?= htmlspecialchars($t['description']) ?></td>
-                            <td><?= $typeLabel ?></td>
-                            <td style="font-weight:700; color:<?= $typeColor ?>">
-                                <?= $typeSign ?><?= number_format($t['amount']) ?> ETB
-                            </td>
-                            <td><span class="badge <?= $badgeClass ?>"><?= ($t['type'] === 'purchase') ? 'Stock In' : (($t['type'] === 'expense') ? 'Expense' : (($t['status'] === 'credit') ? 'Unpaid Debt' : 'Paid')) ?></span></td>
+                            <td colspan="5" style="text-align: center; color: var(--text-secondary);">No ledger records found yet. Click Record Sale to begin.</td>
                         </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-    </div>
+                    <?php else: ?>
+                        <?php foreach ($recentTx as $t): 
+                            $badgeClass = 'badge-success';
+                            $statusKey = 'text_paid';
+                            if ($t['type'] === 'expense') {
+                                $badgeClass = 'badge-danger';
+                                $statusKey = 'text_expense';
+                            } elseif ($t['type'] === 'purchase') {
+                                $badgeClass = 'badge-info';
+                                $statusKey = 'text_purchase';
+                            } elseif ($t['status'] === 'credit') {
+                                $badgeClass = 'badge-warning';
+                                $statusKey = 'text_credit';
+                            }
+                            $typeLabel = 'Sale';
+                            $typeColor = 'var(--success)';
+                            $typeSign = '+';
+                            if ($t['type'] === 'expense') { $typeLabel = 'Expense'; $typeColor = 'var(--danger)'; $typeSign = '-'; }
+                            elseif ($t['type'] === 'purchase') { $typeLabel = 'Purchase'; $typeColor = 'var(--info, #6366f1)'; $typeSign = '-'; }
+                        ?>
+                            <tr>
+                                <td><?= $t['date'] ?></td>
+                                <td><?= htmlspecialchars($t['description']) ?></td>
+                                <td><?= $typeLabel ?></td>
+                                <td style="font-weight:700; color:<?= $typeColor ?>">
+                                    <?= $typeSign ?><?= number_format($t['amount']) ?> ETB
+                                </td>
+                                <td><span class="badge <?= $badgeClass ?>"><?= ($t['type'] === 'purchase') ? 'Stock In' : (($t['type'] === 'expense') ? 'Expense' : (($t['status'] === 'credit') ? 'Unpaid Debt' : 'Paid')) ?></span></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
 </div>
+</div>
+
+<script>
+    // Inject PHP data to JavaScript window object for Chart.js
+    window.analyticsData = {
+        profitTrend: {
+            daily: { labels: <?= json_encode($dailyLabels) ?>, data: <?= json_encode($dailyProfitData) ?> },
+            weekly: { labels: <?= json_encode($weeklyLabels) ?>, data: <?= json_encode($weeklyProfitData) ?> },
+            monthly: { labels: <?= json_encode($monthlyLabels) ?>, data: <?= json_encode($monthlyProfitData) ?> }
+        },
+        cashFlow: {
+            labels: <?= json_encode($cashFlowLabels) ?>,
+            data: <?= json_encode($cashFlowData) ?>
+        },
+        productProfit: <?= json_encode($productProfits) ?>,
+        productVolume: <?= json_encode($productVolumes) ?>,
+        expenseBreakdown: <?= json_encode($expenseByCategory) ?>,
+        topDebtors: <?= json_encode($topDebtors) ?>,
+        lowStockItems: <?= json_encode($lowStockItems) ?>,
+        revenueVsExpense: <?= json_encode($revenueVsExpense) ?>,
+        weeklyComparison: <?= json_encode($weeklyComparison) ?>
+    };
+</script>
 
 <!-- TRANSACTION DRAWER (SALES & EXPENSES) -->
 <div class="drawer-overlay" id="drawer-transaction">

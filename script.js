@@ -129,6 +129,22 @@ document.addEventListener('DOMContentLoaded', () => {
 let profitTrendChartInstance = null;
 let profitProductChartInstance = null;
 let salesPieChartInstance = null;
+let revenueExpenseChartInstance = null;
+let cashFlowChartInstance = null;
+let weeklyComparisonChartInstance = null;
+let expenseBreakdownChartInstance = null;
+let topDebtorsChartInstance = null;
+let lowStockChartInstance = null;
+
+// Global function to change dashboard period
+window.changeDashboardPeriod = function() {
+    const period = document.getElementById('dashboardPeriod').value;
+    // Update all charts that support period switching
+    if (profitTrendChartInstance) {
+        updateProfitChart(period, { target: document.querySelector('.chart-toggles .btn.active') });
+    }
+    // Future: Add period-specific queries via AJAX
+};
 
 function getChartColors() {
     const isLight = document.documentElement.classList.contains('light-theme') || document.body.classList.contains('light-theme');
@@ -138,6 +154,8 @@ function getChartColors() {
         primary: '#10B981',
         primaryGlow: isLight ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.1)',
         secondary: '#3B82F6',
+        danger: '#EF4444',
+        warning: '#F59E0B',
         palette: ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899', '#14B8A6', '#F43F5E', '#6366F1']
     };
 }
@@ -228,16 +246,173 @@ function initializeDashboardCharts() {
             }
         });
     }
+
+    // 4. Revenue vs Expenses (Bar)
+    const revCtx = document.getElementById('revenueExpenseChart');
+    if (revCtx) {
+        revenueExpenseChartInstance = new Chart(revCtx, {
+            type: 'bar',
+            data: {
+                labels: window.analyticsData.revenueVsExpense.labels,
+                datasets: [
+                    {
+                        label: 'Sales',
+                        data: [window.analyticsData.revenueVsExpense.data[0], 0],
+                        backgroundColor: colors.primary
+                    },
+                    {
+                        label: 'Expenses',
+                        data: [0, window.analyticsData.revenueVsExpense.data[1]],
+                        backgroundColor: colors.danger
+                    }
+                ]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    x: { ticks: { color: colors.text }, grid: { color: colors.grid } },
+                    y: { ticks: { color: colors.text }, grid: { color: colors.grid }, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // 5. Cash Flow Chart (Area)
+    const cfCtx = document.getElementById('cashFlowChart');
+    if (cfCtx) {
+        cashFlowChartInstance = new Chart(cfCtx, {
+            type: 'line',
+            data: {
+                labels: window.analyticsData.cashFlow.labels,
+                datasets: [{
+                    label: 'Cash Flow (ETB)',
+                    data: window.analyticsData.cashFlow.data,
+                    borderColor: colors.secondary,
+                    backgroundColor: colors.secondary + '33',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: commonOptions
+        });
+    }
+
+    // 6. Weekly Comparison Chart
+    const wcCtx = document.getElementById('weeklyComparisonChart');
+    if (wcCtx) {
+        weeklyComparisonChartInstance = new Chart(wcCtx, {
+            type: 'bar',
+            data: {
+                labels: window.analyticsData.weeklyComparison.labels,
+                datasets: [{
+                    label: 'Sales (ETB)',
+                    data: window.analyticsData.weeklyComparison.data,
+                    backgroundColor: [colors.warning, colors.primary]
+                }]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    y: { ticks: { color: colors.text }, grid: { color: colors.grid }, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // 7. Expense Breakdown (Pie)
+    const ebCtx = document.getElementById('expenseBreakdownChart');
+    if (ebCtx) {
+        const labels = window.analyticsData.expenseBreakdown.map(e => e.category);
+        const data = window.analyticsData.expenseBreakdown.map(e => e.total);
+        
+        expenseBreakdownChartInstance = new Chart(ebCtx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors.palette.slice(0, labels.length),
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { color: colors.text, font: { family: 'Outfit' }, boxWidth: 12 } }
+                }
+            }
+        });
+    }
+
+    // 8. Top Debtors Chart (Bar)
+    const tdCtx = document.getElementById('topDebtorsChart');
+    if (tdCtx) {
+        const labels = window.analyticsData.topDebtors.map(d => d.name || 'Unknown');
+        const data = window.analyticsData.topDebtors.map(d => d.debt_balance);
+        
+        topDebtorsChartInstance = new Chart(tdCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Debt (ETB)',
+                    data: data,
+                    backgroundColor: colors.danger + '88',
+                    borderColor: colors.danger,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                ...commonOptions,
+                indexAxis: 'y',
+                scales: {
+                    x: { ticks: { color: colors.text }, grid: { color: colors.grid }, beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // 9. Low Stock Items Chart (Bar)
+    const lsCtx = document.getElementById('lowStockChart');
+    if (lsCtx) {
+        const labels = window.analyticsData.lowStockItems.map(i => i.name);
+        const data = window.analyticsData.lowStockItems.map(i => i.quantity);
+        
+        lowStockChartInstance = new Chart(lsCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Stock Qty',
+                    data: data,
+                    backgroundColor: data.map((_, idx) => 
+                        data[idx] <= 2 ? colors.danger : colors.warning
+                    ),
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                ...commonOptions,
+                indexAxis: 'y',
+                scales: {
+                    x: { ticks: { color: colors.text }, grid: { color: colors.grid }, beginAtZero: true, max: 6 }
+                }
+            }
+        });
+    }
 }
 
 // Global function to toggle profit chart periods
-window.updateProfitChart = function(period) {
+window.updateProfitChart = function(period, event) {
     if (!profitTrendChartInstance || !window.analyticsData) return;
     
     // Update active button styling
     const btns = document.querySelectorAll('.chart-toggles .btn');
     btns.forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
 
     // Update data
     const newLabels = window.analyticsData.profitTrend[period].labels;
@@ -253,7 +428,9 @@ window.addEventListener('load', initializeDashboardCharts);
 
 window.addEventListener('themeChanged', () => {
     const colors = getChartColors();
-    const instances = [profitTrendChartInstance, profitProductChartInstance, salesPieChartInstance];
+    const instances = [profitTrendChartInstance, profitProductChartInstance, salesPieChartInstance,
+                       revenueExpenseChartInstance, cashFlowChartInstance, weeklyComparisonChartInstance,
+                       expenseBreakdownChartInstance, topDebtorsChartInstance, lowStockChartInstance];
     
     instances.forEach(chart => {
         if (!chart) return;
@@ -268,6 +445,9 @@ window.addEventListener('themeChanged', () => {
         }
         if (chart === profitTrendChartInstance) {
             chart.data.datasets[0].backgroundColor = colors.primaryGlow;
+        }
+        if (chart === cashFlowChartInstance) {
+            chart.data.datasets[0].backgroundColor = colors.secondary + '33';
         }
         chart.update();
     });
