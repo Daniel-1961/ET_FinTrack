@@ -8,6 +8,50 @@ requireLogin();
 
 // Resolve active sidebar tab depending on file name
 $currentPage = basename($_SERVER['PHP_SELF']);
+
+// Handle Profile Updates
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_profile') {
+    require_once 'config.php';
+    $newUsername = trim($_POST['username']);
+    $newBusinessName = trim($_POST['business_name']);
+    $newPassword = $_POST['password'];
+    $userId = $_SESSION['user_id'];
+
+    if (empty($newUsername) || empty($newBusinessName)) {
+        $_SESSION['profile_error'] = "Username and Business Name cannot be empty.";
+    } else {
+        try {
+            // Check if username is taken by another user
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = ? AND id != ?");
+            $stmt->execute([$newUsername, $userId]);
+            if ($stmt->fetchColumn() > 0) {
+                $_SESSION['profile_error'] = "Username is already taken by another business.";
+            } else {
+                if (!empty($newPassword)) {
+                    // Update username, business name, and password
+                    $hashedPass = password_hash($newPassword, PASSWORD_BCRYPT);
+                    $stmt = $pdo->prepare("UPDATE users SET username = ?, business_name = ?, password = ? WHERE id = ?");
+                    $stmt->execute([$newUsername, $newBusinessName, $hashedPass, $userId]);
+                } else {
+                    // Update username and business name only
+                    $stmt = $pdo->prepare("UPDATE users SET username = ?, business_name = ? WHERE id = ?");
+                    $stmt->execute([$newUsername, $newBusinessName, $userId]);
+                }
+
+                // Update session
+                $_SESSION['username'] = $newUsername;
+                $_SESSION['business_name'] = $newBusinessName;
+                $_SESSION['profile_success'] = "Profile updated successfully!";
+
+                // Redirect to the same page to prevent form resubmission
+                header("Location: " . $_SERVER['REQUEST_URI']);
+                exit;
+            }
+        } catch (PDOException $e) {
+            $_SESSION['profile_error'] = "Database error: " . $e->getMessage();
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -18,7 +62,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <!-- FontAwesome Premium Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Premium Shared CSS Design System -->
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
 
@@ -31,11 +75,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <div class="brand-icon">F</div>
-                <div class="brand-info">
-                    <h3 data-localize="app_title">FinTrack ET</h3>
-                    <p data-localize="app_subtitle">Addis Ababa Retail</p>
-                </div>
+                <a href="dashboard.php" class="brand-link" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; flex-grow: 1;">
+                    <div class="brand-icon">F</div>
+                    <div class="brand-info">
+                        <h3 data-localize="app_title">FinTrack ET</h3>
+                        <p data-localize="app_subtitle">Addis Ababa Retail</p>
+                    </div>
+                </a>
                 <button class="desktop-nav-toggle" id="desktop-toggle" style="background:none; border:none; color:var(--text-light); font-size:1.25rem; cursor:pointer; margin-left:auto; display:flex; align-items:center; justify-content:center;">
                     <i class="fas fa-bars"></i>
                 </button>
@@ -76,8 +122,8 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             </ul>
 
             <!-- Logout Link inside sidebar -->
-            <div style="margin-bottom: 20px; padding: 0 10px;">
-                <a href="logout.php" class="btn btn-danger btn-small" style="width: 100%; display: flex; gap: 8px; justify-content: center;">
+            <div class="sidebar-logout-container" style="margin-bottom: 20px; padding: 0 10px;">
+                <a href="logout.php" class="btn btn-danger btn-small logout-btn" style="width: 100%; display: flex; gap: 8px; justify-content: center; align-items: center;">
                     <i class="fas fa-arrow-right-from-bracket"></i> <span class="logout-text">Logout</span>
                 </a>
             </div>
@@ -93,3 +139,26 @@ $currentPage = basename($_SERVER['PHP_SELF']);
 
         <!-- Main Content Area -->
         <main class="main-content">
+
+            <!-- Global Profile Notifications -->
+            <?php if (isset($_SESSION['profile_success'])): ?>
+                <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.25); color: var(--success); border-radius: 12px; padding: 14px 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 500; font-size: 0.95rem; backdrop-filter: blur(8px);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-check-circle" style="font-size: 1.1rem;"></i> 
+                        <span><?= htmlspecialchars($_SESSION['profile_success']) ?></span>
+                    </div>
+                    <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1.4rem; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0 4px;">&times;</button>
+                </div>
+                <?php unset($_SESSION['profile_success']); ?>
+            <?php endif; ?>
+
+            <?php if (isset($_SESSION['profile_error'])): ?>
+                <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.25); color: var(--danger); border-radius: 12px; padding: 14px 20px; margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 500; font-size: 0.95rem; backdrop-filter: blur(8px);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 1.1rem;"></i> 
+                        <span><?= htmlspecialchars($_SESSION['profile_error']) ?></span>
+                    </div>
+                    <button onclick="this.parentElement.remove()" style="background:none; border:none; color:inherit; cursor:pointer; font-size:1.4rem; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0 4px;">&times;</button>
+                </div>
+                <?php unset($_SESSION['profile_error']); ?>
+            <?php endif; ?>

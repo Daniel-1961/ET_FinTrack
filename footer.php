@@ -1,8 +1,45 @@
         </main>
     </div>
 
+    <!-- Global Edit Profile Drawer -->
+    <div class="drawer-overlay" id="drawer-profile">
+        <div class="drawer">
+            <div class="drawer-header">
+                <h2 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-user-cog" style="color: var(--primary);"></i>
+                    <span data-localize="drawer_profile_title">Edit Profile</span>
+                </h2>
+                <button class="drawer-close" id="profile-drawer-close">&times;</button>
+            </div>
+            
+            <form id="profile-edit-form" method="POST" style="display: flex; flex-direction: column; gap: 20px; flex-grow: 1;">
+                <input type="hidden" name="action" value="update_profile">
+                
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;" data-localize="form_profile_username">Username</label>
+                    <input type="text" name="username" id="profile-username" class="form-control" required value="<?= htmlspecialchars($_SESSION['username']) ?>">
+                </div>
+
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;" data-localize="form_profile_business">Business Name</label>
+                    <input type="text" name="business_name" id="profile-business-name" class="form-control" required value="<?= htmlspecialchars($_SESSION['business_name']) ?>">
+                </div>
+
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;" data-localize="form_profile_password">New Password (leave blank to keep current)</label>
+                    <input type="password" name="password" id="profile-password" class="form-control" placeholder="••••••••">
+                </div>
+
+                <div style="margin-top: auto; display: flex; gap: 10px;">
+                    <button type="button" class="btn btn-secondary drawer-close" style="flex: 1;" data-localize="btn_cancel">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1;" data-localize="btn_save_profile">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Core JavaScript scripts -->
-    <script src="script.js"></script>
+    <script src="script.js?v=2"></script>
     <script>
         // Dictionary matching key templates
         const globalTranslations = {
@@ -108,7 +145,13 @@
                 action_pay: "Repay",
                 text_paid: "Paid",
                 text_credit: "Unpaid Debt",
-                text_expense: "Expense"
+                text_expense: "Expense",
+                drawer_profile_title: "Edit Profile",
+                form_profile_username: "Username",
+                form_profile_business: "Business Name",
+                form_profile_password: "New Password (leave blank to keep current)",
+                btn_save_profile: "Save Changes",
+                btn_cancel: "Cancel"
             },
             am: {
                 app_title: "ፋይናንስ ትራክ",
@@ -211,7 +254,13 @@
                 action_pay: "ዕዳ ክፈል",
                 text_paid: "ተከፍሏል",
                 text_credit: "ዕዳ (ያልተከፈለ)",
-                text_expense: "ወጪ"
+                text_expense: "ወጪ",
+                drawer_profile_title: "መለያ ማስተካከያ",
+                form_profile_username: "የተጠቃሚ ስም",
+                form_profile_business: "የንግድ / የሱቅ ስም",
+                form_profile_password: "አዲስ የይለፍ ቃል (ለመተው ባዶ ያድርጉት)",
+                btn_save_profile: "ለውጦችን አስቀምጥ",
+                btn_cancel: "ይቅር"
             }
         };
 

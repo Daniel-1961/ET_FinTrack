@@ -59,6 +59,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // 1.6 Global Edit Profile Drawer Trigger
+    const userWidget = document.querySelector('.user-widget');
+    const profileDrawer = document.getElementById('drawer-profile');
+    if (userWidget && profileDrawer) {
+        userWidget.addEventListener('click', () => {
+            profileDrawer.style.display = 'flex';
+        });
+    }
+
     // 2. Global Drawer Close helper
     const closeBtns = document.querySelectorAll('.drawer-close');
     closeBtns.forEach(btn => {
