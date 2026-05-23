@@ -29,6 +29,24 @@ if (isset($_GET['delete_id'])) {
                 $upd = $pdo->prepare("UPDATE customers SET debt_balance = GREATEST(0.00, debt_balance - ?) WHERE id = ? AND user_id = ?");
                 $upd->execute([$tx['amount'], $tx['customer_id'], $userId]);
             }
+            
+            // If deleting a sale linked to a product, restore the stock
+            if ($tx['type'] === 'sale' && !empty($tx['product_id'])) {
+                $qty = intval($tx['quantity'] ?? 1);
+                $restoreStock = $pdo->prepare("UPDATE products SET quantity = quantity + ? WHERE id = ? AND user_id = ?");
+                $restoreStock->execute([$qty, $tx['product_id'], $userId]);
+            }
+
+            // If deleting a purchase, reverse the stock increase and supplier debt
+            if ($tx['type'] === 'purchase') {
+                if (!empty($tx['product_id'])) {
+                    $qty = intval($tx['quantity'] ?? 1);
+                    $reverseStock = $pdo->prepare("UPDATE products SET quantity = GREATEST(0, quantity - ?) WHERE id = ? AND user_id = ?");
+                    $reverseStock->execute([$qty, $tx['product_id'], $userId]);
+                }
+                // Note: Supplier debt reversal would need additional tracking of paid vs owed per transaction.
+                // For now, we only reverse the stock.
+            }
 
             // Perform deletion
             $del = $pdo->prepare("DELETE FROM transactions WHERE id = ? AND user_id = ?");
@@ -57,6 +75,8 @@ if ($filter === 'sale') {
     $sql .= " AND t.type = 'expense'";
 } elseif ($filter === 'credit') {
     $sql .= " AND t.status = 'credit'";
+} elseif ($filter === 'purchase') {
+    $sql .= " AND t.type = 'purchase'";
 }
 
 $sql .= " ORDER BY t.date DESC, t.id DESC";
@@ -99,6 +119,7 @@ require_once 'header.php';
     <a href="transactions.php?filter=all" class="tab-btn <?= ($filter === 'all') ? 'active' : '' ?>" data-localize="filter_all">All Records</a>
     <a href="transactions.php?filter=sale" class="tab-btn <?= ($filter === 'sale') ? 'active' : '' ?>" data-localize="filter_sales">Sales Only</a>
     <a href="transactions.php?filter=expense" class="tab-btn <?= ($filter === 'expense') ? 'active' : '' ?>" data-localize="filter_expenses">Expenses Only</a>
+    <a href="transactions.php?filter=purchase" class="tab-btn <?= ($filter === 'purchase') ? 'active' : '' ?>">Purchases</a>
     <a href="transactions.php?filter=credit" class="tab-btn <?= ($filter === 'credit') ? 'active' : '' ?>" data-localize="filter_credits">Debts & Credits</a>
 </div>
 
@@ -130,10 +151,16 @@ require_once 'header.php';
                         if ($t['type'] === 'expense') {
                             $badgeClass = 'badge-danger';
                             $statusKey = 'text_expense';
+                        } elseif ($t['type'] === 'purchase') {
+                            $badgeClass = 'badge-info';
+                            $statusKey = 'text_purchase';
                         } elseif ($t['status'] === 'credit') {
                             $badgeClass = 'badge-warning';
                             $statusKey = 'text_credit';
                         }
+                        $typeSign = ($t['type'] === 'sale') ? '+' : '-';
+                        $typeColor = ($t['type'] === 'sale') ? 'var(--success)' : (($t['type'] === 'purchase') ? 'var(--info, #6366f1)' : 'var(--danger)');
+                        $statusLabel = ($t['type'] === 'purchase') ? 'Stock In' : (($t['type'] === 'expense') ? 'Expense' : (($t['status'] === 'credit') ? 'Unpaid Debt' : 'Paid'));
                     ?>
                         <tr>
                             <td><?= $t['date'] ?></td>
@@ -146,10 +173,10 @@ require_once 'header.php';
                                 <?php endif; ?>
                             </td>
                             <td><?= htmlspecialchars($t['category']) ?></td>
-                            <td style="font-weight: 700; color: <?= ($t['type'] === 'sale') ? 'var(--success)' : 'var(--danger)' ?>">
-                                <?= ($t['type'] === 'sale') ? '+' : '-' ?><?= number_format($t['amount']) ?> ETB
+                            <td style="font-weight: 700; color: <?= $typeColor ?>">
+                                <?= $typeSign ?><?= number_format($t['amount']) ?> ETB
                             </td>
-                            <td><span class="badge <?= $badgeClass ?>" data-localize="<?= $statusKey ?>"><?= ($t['type'] === 'expense') ? 'Expense' : (($t['status'] === 'credit') ? 'Unpaid Debt' : 'Paid') ?></span></td>
+                            <td><span class="badge <?= $badgeClass ?>"><?= $statusLabel ?></span></td>
                             <td>
                                 <a href="transactions.php?filter=<?= $filter ?>&delete_id=<?= $t['id'] ?>" class="btn btn-danger btn-small" onclick="return confirm(localStorage.getItem('fintrack_lang') === 'am' ? 'ይህን መዝገብ መሰረዝ እንደሚፈልጉ እርግጠኛ ነዎት?' : 'Are you sure you want to delete this record?');">
                                     <i class="fas fa-trash-alt"></i>

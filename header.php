@@ -52,6 +52,9 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <li class="menu-item <?= ($currentPage === 'dashboard.php') ? 'active' : '' ?>">
                     <a href="dashboard.php"><i class="fas fa-th-large"></i> <span data-localize="menu_dashboard">Dashboard</span></a>
                 </li>
+                <li class="menu-item <?= ($currentPage === 'products.php') ? 'active' : '' ?>">
+                    <a href="products.php"><i class="fas fa-box"></i> <span data-localize="menu_products">Inventory</span></a>
+                </li>
                 <li class="menu-item <?= ($currentPage === 'transactions.php') ? 'active' : '' ?>">
                     <a href="transactions.php"><i class="fas fa-exchange-alt"></i> <span data-localize="menu_transactions">Ledger</span></a>
                 </li>

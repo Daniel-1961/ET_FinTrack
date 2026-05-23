@@ -31,26 +31,59 @@ CREATE TABLE IF NOT EXISTS `customers` (
     INDEX `idx_customer_name` (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 3. TRANSACTIONS TABLE (Shared Sales and Expenses Ledger)
+-- 3. PRODUCTS TABLE (Inventory Management)
+CREATE TABLE IF NOT EXISTS `products` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `name` VARCHAR(100) NOT NULL,
+    `category` VARCHAR(50) NOT NULL,
+    `price` DECIMAL(12,2) NOT NULL,
+    `quantity` INT NOT NULL DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    INDEX `idx_user_products` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 3b. SUPPLIERS TABLE (Stock Suppliers Registry)
+CREATE TABLE IF NOT EXISTS `suppliers` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `name` VARCHAR(100) NOT NULL,
+    `phone` VARCHAR(20) NOT NULL,
+    `debt_balance` DECIMAL(12,2) DEFAULT 0.00,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    INDEX `idx_user_supplier` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4. TRANSACTIONS TABLE (Shared Sales and Expenses Ledger)
 CREATE TABLE IF NOT EXISTS `transactions` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` INT NOT NULL,
     `customer_id` INT DEFAULT NULL, -- Linked only if it's a credit sale
+    `product_id` INT DEFAULT NULL, -- Linked if the sale is from inventory
     `date` DATE NOT NULL,
     `description` VARCHAR(255) NOT NULL,
-    `type` ENUM('sale', 'expense') NOT NULL,
+    `type` ENUM('sale', 'expense', 'purchase') NOT NULL,
     `amount` DECIMAL(12,2) NOT NULL,
     `category` VARCHAR(50) NOT NULL,
     `status` ENUM('paid', 'credit') NOT NULL DEFAULT 'paid',
+    `due_date` DATE DEFAULT NULL,
+    `comment` TEXT DEFAULT NULL,
+    `cost_price` DECIMAL(12,2) DEFAULT NULL,
+    `quantity` INT DEFAULT 1,
+    `supplier_id` INT DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
     FOREIGN KEY (`customer_id`) REFERENCES `customers` (`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL,
     INDEX `idx_user_tx` (`user_id`),
     INDEX `idx_tx_type` (`type`),
     INDEX `idx_tx_date` (`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4. PAYMENTS TABLE (Installment Payments history for Credits)
+-- 5. PAYMENTS TABLE (Installment Payments history for Credits)
 CREATE TABLE IF NOT EXISTS `payments` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` INT NOT NULL,
@@ -80,6 +113,13 @@ INSERT INTO `customers` (`id`, `user_id`, `name`, `phone`, `shop_name`, `locatio
 (2, 1, 'Marta Balcha', '0912334455', 'Marta Fruit Shop', 'Merkato, Addis Ababa', 750.00, '2026-05-20'),
 (3, 1, 'Dr. Yonas Hailu', '0922887766', 'Yonas Dental Clinic', 'Piazza, Addis Ababa', 0.00, '2026-05-15'),
 (4, 1, 'Kibrom Tekle', '0933990011', 'Kibrom Stationery', 'Bole, Addis Ababa', 1500.00, '2026-05-19');
+
+-- Seed Products for Almaz Grocery (user_id = 1)
+INSERT INTO `products` (`id`, `user_id`, `name`, `category`, `price`, `quantity`) VALUES
+(1, 1, 'Sugar (1 kg)', 'Groceries', 120.00, 50),
+(2, 1, 'Cooking Oil (1 L)', 'Groceries', 250.00, 30),
+(3, 1, 'Detergent Soap', 'Cleaning Supplies', 80.00, 100),
+(4, 1, 'Macchiato Coffee Blend', 'Cafe', 150.00, 15);
 
 -- Seed Sales and Expenses Transactions for Almaz Grocery (user_id = 1)
 INSERT INTO `transactions` (`id`, `user_id`, `customer_id`, `date`, `description`, `type`, `amount`, `category`, `status`) VALUES

@@ -22,7 +22,20 @@ $stmt = $pdo->prepare("SELECT SUM(debt_balance) FROM customers WHERE user_id = ?
 $stmt->execute([$userId]);
 $totalDebts = floatval($stmt->fetchColumn() ?: 0);
 
-$netProfit = $totalSales - $totalExpenses;
+$netProfit_old = $totalSales - $totalExpenses;
+
+// Gross Profit = SUM of (selling_price - cost_price) * quantity for tracked sales
+$stmt = $pdo->prepare("SELECT SUM((amount - COALESCE(cost_price, 0) * COALESCE(quantity, 1))) FROM transactions WHERE user_id = ? AND type = 'sale' AND cost_price IS NOT NULL");
+$stmt->execute([$userId]);
+$grossProfit = floatval($stmt->fetchColumn() ?: 0);
+
+// For custom sales without cost tracking, count revenue as profit
+$stmt = $pdo->prepare("SELECT SUM(amount) FROM transactions WHERE user_id = ? AND type = 'sale' AND cost_price IS NULL");
+$stmt->execute([$userId]);
+$customSalesProfit = floatval($stmt->fetchColumn() ?: 0);
+
+$totalGrossProfit = $grossProfit + $customSalesProfit;
+$netProfit = $totalGrossProfit - $totalExpenses;
 $profitMargin = $totalSales > 0 ? ($netProfit / $totalSales) * 100 : 0;
 $debtRatio = $totalSales > 0 ? ($totalDebts / $totalSales) : 0;
 
@@ -35,6 +48,16 @@ $expensesCategories = $stmt->fetchAll();
 $stmt = $pdo->prepare("SELECT * FROM customers WHERE user_id = ? AND debt_balance > 0 ORDER BY debt_balance DESC LIMIT 4");
 $stmt->execute([$userId]);
 $topDebtors = $stmt->fetchAll();
+
+// 4. TOTAL STOCK PURCHASES (inventory investment)
+$stmt = $pdo->prepare("SELECT SUM(amount) FROM transactions WHERE user_id = ? AND type = 'purchase'");
+$stmt->execute([$userId]);
+$totalPurchases = floatval($stmt->fetchColumn() ?: 0);
+
+// 5. TOTAL SUPPLIER DEBT
+$stmt = $pdo->prepare("SELECT SUM(debt_balance) FROM suppliers WHERE user_id = ?");
+$stmt->execute([$userId]);
+$totalSupplierDebt = floatval($stmt->fetchColumn() ?: 0);
 
 require_once 'header.php';
 ?>
@@ -157,12 +180,24 @@ require_once 'header.php';
                     <td style="font-weight: 700; color: var(--warning);"><?= number_format($totalDebts) ?> ETB</td>
                 </tr>
                 <tr style="border-top: 2px solid var(--border-color);">
-                    <td style="font-weight: 700; font-size: 1.1rem;">Net Profits</td>
-                    <td style="font-weight: 800; color: var(--success); font-size: 1.1rem;"><?= number_format($netProfit) ?> ETB</td>
+                    <td style="font-weight: 700; font-size: 1.05rem;">Gross Profit (Sales Margin)</td>
+                    <td style="font-weight: 800; color: var(--success); font-size: 1.05rem;"><?= number_format($totalGrossProfit) ?> ETB</td>
+                </tr>
+                <tr style="border-top: 2px solid var(--border-color);">
+                    <td style="font-weight: 700; font-size: 1.1rem;">Net Profits (after expenses)</td>
+                    <td style="font-weight: 800; color: <?= $netProfit >= 0 ? 'var(--success)' : 'var(--danger)' ?>; font-size: 1.1rem;"><?= number_format($netProfit) ?> ETB</td>
                 </tr>
                 <tr>
                     <td style="font-weight: 600;">Net Profit Margin</td>
                     <td style="font-weight: 700; color: var(--info);"><?= number_format($profitMargin, 1) ?>%</td>
+                </tr>
+                <tr style="border-top: 1px solid var(--border-color);">
+                    <td style="font-weight: 600;">Total Stock Purchases (Inventory Investment)</td>
+                    <td style="font-weight: 700; color: var(--info, #6366f1);"><?= number_format($totalPurchases) ?> ETB</td>
+                </tr>
+                <tr>
+                    <td style="font-weight: 600;">Supplier Debt (Amount Owed to Suppliers)</td>
+                    <td style="font-weight: 700; color: <?= $totalSupplierDebt > 0 ? 'var(--danger)' : 'var(--success)' ?>;"><?= number_format($totalSupplierDebt) ?> ETB</td>
                 </tr>
             </tbody>
         </table>
@@ -175,6 +210,9 @@ require_once 'header.php';
     const totalExpenses = <?= $totalExpenses ?>;
     const totalDebts = <?= $totalDebts ?>;
     const debtRatio = <?= $debtRatio ?>;
+    const grossProfitVal = <?= $totalGrossProfit ?>;
+    const netProfitVal = <?= $netProfit ?>;
+    const profitMarginVal = <?= $profitMargin ?>;
 
     function renderPHPBIAdvisor(lang) {
         const container = document.getElementById('php-bi-container');
@@ -204,7 +242,7 @@ require_once 'header.php';
             } else {
                 insights.push({
                     icon: 'fa-arrow-trend-up',
-                    text: `<strong>Strong Margin Health:</strong> Net Profit margins are high (${Math.round(totalSales > 0 ? (totalSales-totalExpenses)/totalSales*100 : 0)}%). Consider utilizing CBE Birr or Telebirr merchant savings accounts to earn local yields.`
+                    text: `<strong>Strong Margin Health:</strong> Net Profit margin is ${Math.round(profitMarginVal)}% (Gross Profit: ${Math.round(grossProfitVal).toLocaleString()} ETB). Consider utilizing CBE Birr or Telebirr merchant savings accounts to earn local yields.`
                 });
             }
 
@@ -234,7 +272,7 @@ require_once 'header.php';
             } else {
                 insights.push({
                     icon: 'fa-arrow-trend-up',
-                    text: `<strong>ጥሩ የትርፍ መጠን፡</strong> በዚህ ወር የተጣራ የትርፍ መጠንዎ በጣም ከፍተኛ ነው (${Math.round(totalSales > 0 ? (totalSales-totalExpenses)/totalSales*100 : 0)}%)። ተጨማሪ ትርፍዎን በቴሌብር (Telebirr) ወይም በንግድ ባንክ ነጋዴ ሂሳብ ላይ በማስቀመጥ ወለድ ቢያገኙ ይመረጣል።`
+                    text: `<strong>ጥሩ የትርፍ መጠን፡</strong> የተጣራ ትርፍ መጠን ${Math.round(profitMarginVal)}% ነው (ጠቅላላ ትርፍ: ${Math.round(grossProfitVal).toLocaleString()} ብር)። ተጨማሪ ትርፍዎን በቴሌብር (Telebirr) ወይም በንግድ ባንክ ነጋዴ ሂሳብ ላይ በማስቀመጥ ወለድ ቢያገኙ ይመረጣል።`
                 });
             }
 
