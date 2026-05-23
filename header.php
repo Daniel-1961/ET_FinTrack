@@ -62,7 +62,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     <!-- FontAwesome Premium Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Premium Shared CSS Design System -->
-    <link rel="stylesheet" href="style.css?v=2">
+    <link rel="stylesheet" href="style.css?v=3">
+    <!-- Prevent Theme Flash -->
+    <script>
+        if (localStorage.getItem('fintrack_theme') === 'light') {
+            document.documentElement.classList.add('light-theme');
+            document.addEventListener('DOMContentLoaded', () => document.body.classList.add('light-theme'));
+        }
+    </script>
 </head>
 <body>
 
@@ -128,12 +135,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 </a>
             </div>
 
-            <!-- Bilingual Switcher in Footer -->
-            <div class="sidebar-footer">
+            <!-- Bilingual Switcher and Theme Toggle in Footer -->
+            <div class="sidebar-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 10px;">
                 <div class="lang-toggle" id="php-lang-switcher">
                     <div class="lang-btn active" id="btn-php-en">EN</div>
                     <div class="lang-btn" id="btn-php-am">አማርኛ</div>
                 </div>
+                <button id="theme-toggle" class="btn" style="background: none; border: 1px solid var(--border-color); color: var(--text-light); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <i class="fas fa-moon"></i>
+                </button>
             </div>
         </aside>
 

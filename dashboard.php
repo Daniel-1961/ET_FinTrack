@@ -238,6 +238,69 @@ for ($i = 6; $i >= 0; $i--) {
     $expensesData[] = floatval($eQuery->fetchColumn() ?: 0);
 }
 
+// 7. ADVANCED ANALYTICS: PRODUCT PROFIT & DISTRIBUTION
+// 7a. Net Profit per Product
+$stmt = $pdo->prepare("
+    SELECT p.name, 
+           SUM((t.amount - COALESCE(t.cost_price, 0) * COALESCE(t.quantity, 1))) as profit
+    FROM transactions t
+    JOIN products p ON t.product_id = p.id
+    WHERE t.user_id = ? AND t.type = 'sale'
+    GROUP BY p.id
+    ORDER BY profit DESC
+    LIMIT 8
+");
+$stmt->execute([$userId]);
+$productProfits = $stmt->fetchAll();
+
+// 7b. Product Sales Distribution (Pie Chart Volume)
+$stmt = $pdo->prepare("
+    SELECT p.name, SUM(t.quantity) as volume
+    FROM transactions t
+    JOIN products p ON t.product_id = p.id
+    WHERE t.user_id = ? AND t.type = 'sale'
+    GROUP BY p.id
+    ORDER BY volume DESC
+    LIMIT 8
+");
+$stmt->execute([$userId]);
+$productVolumes = $stmt->fetchAll();
+
+// 7c. Periodic Profit Trends (Daily, Weekly, Monthly)
+// Daily Profit (Last 7 Days)
+$dailyProfitData = [];
+$dailyLabels = [];
+for ($i = 6; $i >= 0; $i--) {
+    $dateVal = date('Y-m-d', strtotime("-$i days"));
+    $dailyLabels[] = date('m-d', strtotime("-$i days"));
+    $q = $pdo->prepare("SELECT SUM(CASE WHEN type = 'sale' THEN (amount - COALESCE(cost_price, 0) * COALESCE(quantity, 1)) WHEN type = 'expense' THEN -amount ELSE 0 END) FROM transactions WHERE user_id = ? AND date = ?");
+    $q->execute([$userId, $dateVal]);
+    $dailyProfitData[] = floatval($q->fetchColumn() ?: 0);
+}
+
+// Weekly Profit (Last 4 Weeks)
+$weeklyProfitData = [];
+$weeklyLabels = [];
+for ($i = 3; $i >= 0; $i--) {
+    $startDate = date('Y-m-d', strtotime("-$i weeks -6 days"));
+    $endDate = date('Y-m-d', strtotime("-$i weeks"));
+    $weeklyLabels[] = "W" . (4-$i);
+    $q = $pdo->prepare("SELECT SUM(CASE WHEN type = 'sale' THEN (amount - COALESCE(cost_price, 0) * COALESCE(quantity, 1)) WHEN type = 'expense' THEN -amount ELSE 0 END) FROM transactions WHERE user_id = ? AND date >= ? AND date <= ?");
+    $q->execute([$userId, $startDate, $endDate]);
+    $weeklyProfitData[] = floatval($q->fetchColumn() ?: 0);
+}
+
+// Monthly Profit (Last 6 Months)
+$monthlyProfitData = [];
+$monthlyLabels = [];
+for ($i = 5; $i >= 0; $i--) {
+    $monthVal = date('Y-m', strtotime("-$i months"));
+    $monthlyLabels[] = date('M', strtotime("-$i months"));
+    $q = $pdo->prepare("SELECT SUM(CASE WHEN type = 'sale' THEN (amount - COALESCE(cost_price, 0) * COALESCE(quantity, 1)) WHEN type = 'expense' THEN -amount ELSE 0 END) FROM transactions WHERE user_id = ? AND DATE_FORMAT(date, '%Y-%m') = ?");
+    $q->execute([$userId, $monthVal]);
+    $monthlyProfitData[] = floatval($q->fetchColumn() ?: 0);
+}
+
 // Attach the unified responsive header
 require_once 'header.php';
 ?>
@@ -306,18 +369,48 @@ require_once 'header.php';
     </div>
 </div>
 
-<!-- Central Analysis & Quick Actions -->
-<div class="dashboard-panels">
+<!-- Professional Analytics Charts -->
+<div class="dashboard-panels" style="display: grid; grid-template-columns: 1fr; gap: 25px; margin-bottom: 25px;">
+    <!-- Top Row: Periodic Profit Trends -->
+    <div class="panel">
+        <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3 class="panel-title"><i class="fas fa-chart-line"></i> <span data-localize="panel_profit_trend">Profit Trends (Net)</span></h3>
+            <div class="chart-toggles">
+                <button class="btn btn-small active" onclick="updateProfitChart('daily')">Daily</button>
+                <button class="btn btn-small" onclick="updateProfitChart('weekly')">Weekly</button>
+                <button class="btn btn-small" onclick="updateProfitChart('monthly')">Monthly</button>
+            </div>
+        </div>
+        <div style="height: 300px; width: 100%;">
+            <canvas id="profitTrendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard-panels" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 25px; margin-bottom: 25px;">
+    <!-- Bottom Left: Profit per Product -->
     <div class="panel">
         <div class="panel-header">
-            <h3 class="panel-title"><i class="fas fa-chart-area"></i> <span data-localize="panel_sales_trend">Sales & Expenses Trend</span></h3>
-            <div style="font-size: 0.8rem; color: var(--text-secondary);" data-localize="chart_realtime">Real-time dynamic visualization</div>
+            <h3 class="panel-title"><i class="fas fa-box-open"></i> <span data-localize="panel_profit_product">Net Profit per Product</span></h3>
         </div>
-        <div class="chart-container" id="dashboard-chart">
-            <!-- Rendered dynamically by SVG Charting Engine -->
+        <div style="height: 300px; width: 100%;">
+            <canvas id="profitProductChart"></canvas>
         </div>
     </div>
 
+    <!-- Bottom Right: Product Sales Volume -->
+    <div class="panel">
+        <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-chart-pie"></i> <span data-localize="panel_sales_dist">Product Sales Distribution</span></h3>
+        </div>
+        <div style="height: 300px; width: 100%; display: flex; justify-content: center;">
+            <canvas id="salesPieChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Urgent Collections & Recent Activity Grid -->
+<div class="dashboard-panels">
     <!-- Urgent Collections -->
     <div class="panel">
         <div class="panel-header">
@@ -346,7 +439,19 @@ require_once 'header.php';
             <?php endif; ?>
         </div>
     </div>
-</div>
+
+    <script>
+        // Inject PHP data to JavaScript window object for Chart.js
+        window.analyticsData = {
+            profitTrend: {
+                daily: { labels: <?= json_encode($dailyLabels) ?>, data: <?= json_encode($dailyProfitData) ?> },
+                weekly: { labels: <?= json_encode($weeklyLabels) ?>, data: <?= json_encode($weeklyProfitData) ?> },
+                monthly: { labels: <?= json_encode($monthlyLabels) ?>, data: <?= json_encode($monthlyProfitData) ?> }
+            },
+            productProfit: <?= json_encode($productProfits) ?>,
+            productVolume: <?= json_encode($productVolumes) ?>
+        };
+    </script>
 
 <!-- Recent Activities Table -->
 <div class="panel">
@@ -654,20 +759,6 @@ require_once 'header.php';
 </div>
 
 <script>
-    // Injected dynamic stats to render the premium SVG Chart
-    const chartDays = <?= json_encode($days) ?>;
-    const chartSales = <?= json_encode($salesData) ?>;
-    const chartExpenses = <?= json_encode($expensesData) ?>;
-
-    window.addEventListener('load', () => {
-        // Render Chart
-        renderSVGChart('dashboard-chart', chartDays, chartSales, chartExpenses);
-
-        // Lang Switch Listener to redraw chart labels in correct locale if necessary
-        window.addEventListener('langChanged', () => {
-            renderSVGChart('dashboard-chart', chartDays, chartSales, chartExpenses);
-        });
-    });
 
     function openDrawer(type) {
         document.getElementById('form-tx-date').value = new Date().toISOString().split('T')[0];

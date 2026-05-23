@@ -39,7 +39,8 @@
     </div>
 
     <!-- Core JavaScript scripts -->
-    <script src="script.js?v=2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="script.js?v=3"></script>
     <script>
         // Dictionary matching key templates
         const globalTranslations = {
@@ -76,6 +77,9 @@
                 metric_credits: "Active Debts",
                 metric_profit: "Net Profit",
                 panel_sales_trend: "Sales vs Expenses Trend",
+                panel_profit_trend: "Profit Trends (Net)",
+                panel_profit_product: "Net Profit per Product",
+                panel_sales_dist: "Product Sales Distribution",
                 chart_realtime: "Real-time dynamic visualization",
                 panel_urgent_debts: "Urgent Collections",
                 panel_recent_tx: "Recent Ledger Entries",
@@ -185,6 +189,9 @@
                 metric_credits: "ያልተሰበሰበ ዕዳ",
                 metric_profit: "የተጣራ ትርፍ",
                 panel_sales_trend: "የሽያጭ እና ወጪ ንፅፅር",
+                panel_profit_trend: "የትርፍ ንፅፅር (የተጣራ)",
+                panel_profit_product: "የተጣራ ትርፍ በየዕቃው",
+                panel_sales_dist: "የዕቃ ሽያጭ ድርሻ",
                 chart_realtime: "ፈጣን እና ቀጥታ መረጃዎችን ማሳያ",
                 panel_urgent_debts: "አስቸኳይ የሚሰበሰቡ ዕዳዎች",
                 panel_recent_tx: "የቅርብ ጊዜ የሂሳብ መዝገቦች",

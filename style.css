@@ -48,6 +48,23 @@
     --font-primary: 'Outfit', 'Noto Sans Ethiopic', sans-serif;
 }
 
+body.light-theme {
+    /* Light Mode Overrides */
+    --bg-main: #F9FAFB;
+    --bg-card: #FFFFFF;
+    --bg-input: #F3F4F6;
+    
+    --text-primary: #111827;
+    --text-secondary: #4B5563;
+    --text-muted: #6B7280;
+    --text-light: #1F2937; /* Keep dark for contrast in light mode headers */
+    
+    --border-color: rgba(0, 0, 0, 0.1);
+    --border-glow: rgba(15, 81, 50, 0.15);
+    --shadow-main: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-glow: 0 0 15px rgba(15, 81, 50, 0.1);
+}
+
 /* Reset & Scrollbar */
 * {
     margin: 0;
