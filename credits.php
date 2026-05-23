@@ -31,6 +31,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_P
     }
 }
 
+// 1.5 HANDLE EDIT CUSTOMER POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_POST['action_type'] === 'edit_customer') {
+    $customerId = intval($_POST['customer_id']);
+    $name = trim($_POST['name']);
+    $phone = trim($_POST['phone']);
+    $shop = trim($_POST['shop_name']);
+    $location = trim($_POST['location']);
+
+    if (empty($name) || empty($phone)) {
+        $errorMsg = "Name and Phone fields are required.";
+    } else {
+        try {
+            $stmt = $pdo->prepare("UPDATE customers SET name = ?, phone = ?, shop_name = ?, location = ? WHERE id = ? AND user_id = ?");
+            $stmt->execute([$name, $phone, $shop, $location, $customerId, $userId]);
+            $successMsg = "Customer details updated successfully!";
+        } catch (Exception $e) {
+            $errorMsg = "Failed to update customer: " . $e->getMessage();
+        }
+    }
+}
+
 // 2. HANDLE DEBT REPAYMENT POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_type']) && $_POST['action_type'] === 'log_repayment') {
     $customerId = intval($_POST['customer_id']);
@@ -189,6 +210,10 @@ require_once 'header.php';
                                         <span style="font-size:0.8rem; color:var(--text-muted);"><i class="fas fa-check-circle" style="color:var(--success)"></i> Clear</span>
                                     <?php endif; ?>
                                     
+                                    <button class="btn btn-secondary btn-small" onclick="openCustomerDrawer('edit', <?= $c['id'] ?>, '<?= addslashes(htmlspecialchars($c['name'])) ?>', '<?= addslashes(htmlspecialchars($c['phone'])) ?>', '<?= addslashes(htmlspecialchars($c['shop_name'])) ?>', '<?= addslashes(htmlspecialchars($c['location'])) ?>')">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    
                                     <a href="credits.php?delete_id=<?= $c['id'] ?>" class="btn btn-danger btn-small" onclick="return confirm(localStorage.getItem('fintrack_lang') === 'am' ? 'ደንበኛውን መሰረዝ እንደሚፈልጉ እርግጠኛ ነዎት?' : 'Are you sure you want to delete this customer profile?');">
                                         <i class="fas fa-trash"></i>
                                     </a>
@@ -206,12 +231,13 @@ require_once 'header.php';
 <div class="drawer-overlay" id="drawer-customer">
     <div class="drawer">
         <div class="drawer-header">
-            <h3 data-localize="drawer_customer_title">Register Customer</h3>
+            <h3 id="drawer-customer-title" data-localize="drawer_customer_title">Register Customer</h3>
             <button class="drawer-close"><i class="fas fa-times"></i></button>
         </div>
         <div class="drawer-body">
             <form action="credits.php" method="POST">
-                <input type="hidden" name="action_type" value="add_customer">
+                <input type="hidden" name="action_type" id="form-customer-action" value="add_customer">
+                <input type="hidden" name="customer_id" id="form-customer-id">
                 
                 <div class="form-group">
                     <label class="form-label" data-localize="form_cust_name">Full Name</label>
@@ -235,7 +261,7 @@ require_once 'header.php';
                 </div>
 
                 <div style="margin-top: 30px;">
-                    <button type="submit" class="btn btn-accent" style="width: 100%;" data-localize="btn_save_customer">Register Customer</button>
+                    <button type="submit" id="btn-save-customer" class="btn btn-accent" style="width: 100%;" data-localize="btn_save_customer">Register Customer</button>
                 </div>
             </form>
         </div>
@@ -295,8 +321,28 @@ require_once 'header.php';
 <script>
     function openDrawer(type) {
         if (type === 'customer') {
-            document.getElementById('drawer-customer').style.display = 'flex';
+            openCustomerDrawer('add');
         }
+    }
+
+    function openCustomerDrawer(mode, id = '', name = '', phone = '', shop = '', location = '') {
+        document.getElementById('form-customer-action').value = (mode === 'add') ? 'add_customer' : 'edit_customer';
+        document.getElementById('form-customer-id').value = id;
+        document.querySelector('#drawer-customer input[name="name"]').value = name;
+        document.querySelector('#drawer-customer input[name="phone"]').value = phone;
+        document.querySelector('#drawer-customer input[name="shop_name"]').value = shop;
+        document.querySelector('#drawer-customer input[name="location"]').value = location;
+
+        const lang = localStorage.getItem('fintrack_lang') || 'en';
+        if (mode === 'add') {
+            document.getElementById('drawer-customer-title').textContent = (lang === 'en') ? 'Register Customer' : 'አዲስ ደንበኛ መመዝገቢያ';
+            document.getElementById('btn-save-customer').textContent = (lang === 'en') ? 'Register Customer' : 'ደንበኛውን መዝግብ';
+        } else {
+            document.getElementById('drawer-customer-title').textContent = (lang === 'en') ? 'Edit Customer' : 'ደንበኛውን አስተካክል';
+            document.getElementById('btn-save-customer').textContent = (lang === 'en') ? 'Save Changes' : 'አስተካክል';
+        }
+
+        document.getElementById('drawer-customer').style.display = 'flex';
     }
 
     function openRepayDrawer(id, name, balance) {

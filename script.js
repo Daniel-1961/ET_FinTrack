@@ -35,6 +35,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 1.5 Desktop Sidebar Toggle
+    const desktopToggle = document.getElementById('desktop-toggle');
+    const mainContent = document.querySelector('.main-content');
+    
+    if (desktopToggle && sidebar && mainContent) {
+        desktopToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('collapsed');
+            
+            // Save preference to localStorage
+            if (sidebar.classList.contains('collapsed')) {
+                localStorage.setItem('sidebar_collapsed', 'true');
+            } else {
+                localStorage.setItem('sidebar_collapsed', 'false');
+            }
+        });
+        
+        // Restore preference on load
+        if (localStorage.getItem('sidebar_collapsed') === 'true') {
+            sidebar.classList.add('collapsed');
+            mainContent.classList.add('collapsed');
+        }
+    }
+
     // 2. Global Drawer Close helper
     const closeBtns = document.querySelectorAll('.drawer-close');
     closeBtns.forEach(btn => {
@@ -55,6 +79,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Auto-open stock drawer if requested via URL param (used by sidebar link)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('drawer') === 'stock') {
+        if (typeof openStockDrawer === 'function') {
+            setTimeout(openStockDrawer, 100);
+        }
+    }
 });
 
 /**

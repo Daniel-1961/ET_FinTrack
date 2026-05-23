@@ -182,6 +182,43 @@ a:hover {
     transition: var(--transition);
 }
 
+.sidebar.collapsed {
+    width: 80px;
+    padding: 30px 10px;
+}
+
+.sidebar.collapsed .brand-info,
+.sidebar.collapsed .user-name,
+.sidebar.collapsed .menu-item span,
+.sidebar.collapsed .sidebar-footer,
+.sidebar.collapsed .logout-text {
+    display: none;
+}
+
+.sidebar.collapsed .brand-icon {
+    display: none; /* Hide brand icon when collapsed to show only hamburger */
+}
+
+.sidebar.collapsed .desktop-nav-toggle {
+    margin: 0 auto !important;
+}
+
+.sidebar.collapsed .user-widget {
+    justify-content: center;
+    padding: 10px 0;
+}
+
+.sidebar.collapsed .menu-item a {
+    justify-content: center;
+    padding: 12px 0;
+}
+
+.sidebar.collapsed .menu-item a i {
+    margin: 0;
+    font-size: 1.3rem;
+}
+
+
 .sidebar-brand {
     display: flex;
     align-items: center;
@@ -335,6 +372,10 @@ a:hover {
     padding: 40px;
     background: radial-gradient(circle at 50% 0%, rgba(15, 81, 50, 0.08) 0%, transparent 60%);
     transition: var(--transition);
+}
+
+.main-content.collapsed {
+    margin-left: 80px;
 }
 
 /* Mobile responsive hamburger (hidden on desktop) */
