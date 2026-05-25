@@ -82,14 +82,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-brand">
-                <a href="dashboard.php" class="brand-link" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit; flex-grow: 1;">
+                <a href="dashboard.php" class="brand-link" style="display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; flex-grow: 1;">
                     <div class="brand-icon">F</div>
                     <div class="brand-info">
                         <h3 data-localize="app_title">FinTrack ET</h3>
                         <p data-localize="app_subtitle">Addis Ababa Retail</p>
                     </div>
                 </a>
-                <button class="desktop-nav-toggle" id="desktop-toggle" style="background:none; border:none; color:var(--text-light); font-size:1.25rem; cursor:pointer; margin-left:auto; display:flex; align-items:center; justify-content:center;">
+                <button class="desktop-nav-toggle" id="desktop-toggle" style="background:none; border:none; color:var(--text-light); font-size:1.1rem; cursor:pointer; margin-left:auto; display:flex; align-items:center; justify-content:center;">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 <div class="user-avatar"><i class="fas fa-store"></i></div>
                 <div class="user-name">
                     <div style="font-weight: 700; color: var(--text-light);"><?= htmlspecialchars($_SESSION['business_name']) ?></div>
-                    <div style="font-size: 0.7rem; color: var(--text-secondary);" data-localize="user_role">Owner Profile</div>
+                    <div style="font-size: 0.65rem; color: var(--text-secondary);" data-localize="user_role">Owner Profile</div>
                 </div>
             </div>
 
@@ -129,14 +129,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             </ul>
 
             <!-- Logout Link inside sidebar -->
-            <div class="sidebar-logout-container" style="margin-bottom: 20px; padding: 0 10px;">
+            <div class="sidebar-logout-container" style="margin-bottom: 6px; padding: 0 10px;">
                 <a href="logout.php" class="btn btn-danger btn-small logout-btn" style="width: 100%; display: flex; gap: 8px; justify-content: center; align-items: center;">
                     <i class="fas fa-arrow-right-from-bracket"></i> <span class="logout-text">Logout</span>
                 </a>
             </div>
 
             <!-- Bilingual Switcher and Theme Toggle in Footer -->
-            <div class="sidebar-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 15px 10px;">
+            <div class="sidebar-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 0;">
                 <div class="lang-toggle" id="php-lang-switcher">
                     <div class="lang-btn active" id="btn-php-en">EN</div>
                     <div class="lang-btn" id="btn-php-am">አማርኛ</div>
